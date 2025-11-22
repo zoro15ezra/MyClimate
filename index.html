@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Climate - UK Weather Forecast</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS for maps -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    
+    <link rel="stylesheet" href="styles.css">
+    
+    <style>
+        #weather-map {
+            height: 500px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .location-widget {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 12px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .location-widget:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .offline-indicator {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-start justify-center p-4 sm:p-8">
+
+    <div id="app-container" class="w-full max-w-2xl mt-10 z-10 relative">
+        
+        <!-- Current Location Widget (Top Right) -->
+        <div id="current-location-widget" class="hidden location-widget absolute top-0 right-0 text-white text-sm">
+            <div class="flex items-center space-x-2">
+                <span class="text-2xl" id="location-icon">📍</span>
+                <div>
+                    <div class="font-semibold" id="location-name">Getting location...</div>
+                    <div class="text-gray-300" id="location-temp">--°</div>
+                </div>
+            </div>
+        </div>
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold text-white">My Climate 🇬🇧</h1>
+            <p class="text-gray-400 mt-1 uppercase font-semibold tracking-wider">THE WEATHER AT YOUR FINGER TIPS</p>
+            
+            <!-- Offline Indicator -->
+            <div id="offline-indicator" class="hidden mt-2">
+                <span class="offline-indicator">⚠️ Offline Mode - Showing Cached Data</span>
+            </div>
+        </header>
+
+        <div id="main-content-wrapper">
+            
+            <div id="auth-container" class="weather-card p-8 rounded-xl space-y-6">
+                <h2 class="text-2xl font-bold text-white text-center" id="auth-title">Welcome Back</h2>
+                
+                <form id="login-form" class="space-y-4">
+                    <input id="login-email" type="email" placeholder="Email Address" required
+                           class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <input id="login-password" type="password" placeholder="Password" required
+                           class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <button type="submit" id="login-button"
+                            class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200">
+                        Login
+                    </button>
+                </form>
+
+                <form id="signup-form" class="space-y-4 hidden">
+                    <input id="signup-name" type="text" placeholder="Your Name" required
+                           class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <input id="signup-email" type="email" placeholder="Email Address" required
+                           class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <input id="signup-password" type="password" placeholder="Password (min 6 chars)" required
+                           class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <button type="submit" id="signup-button"
+                            class="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200">
+                        Create Account
+                    </button>
+                </form>
+
+                <div id="auth-status" class="text-center text-sm"></div>
+
+                <p id="toggle-auth" class="text-center text-sm text-gray-400 cursor-pointer hover:text-white transition-colors">
+                    Don't have an account? <span class="font-bold text-blue-400">Sign Up</span>
+                </p>
+            </div>
+            
+            <div id="weather-app-container" class="hidden">
+                <div class="weather-card p-6 rounded-xl mb-8 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                    <input id="city-input" type="text" placeholder="Enter UK City (e.g., Manchester, Glasgow)" 
+                           value="London"
+                           class="flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all">
+                    <button id="fetch-button"
+                            class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 flex-shrink-0">
+                        Get Forecast
+                    </button>
+                    <button id="show-map-button"
+                            class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 flex-shrink-0">
+                        Show Map
+                    </button>
+                </div>
+
+                <!-- Weather Map Container -->
+                <div id="map-container" class="hidden weather-card p-6 rounded-xl mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-white">Live Weather Map</h3>
+                        <button id="close-map-button" class="text-gray-400 hover:text-white transition-colors">
+                            ✕ Close
+                        </button>
+                    </div>
+                    <div id="weather-map"></div>
+                </div>
+
+                <div id="weather-display" class="w-full">
+                    
+                </div>
+            </div>
+
+        </div>
+        
+        <div id="user-info" class="text-right mt-4 hidden">
+            <span id="user-display" class="text-gray-400 mr-3"></span>
+            <button id="logout-button"
+                    class="text-sm px-3 py-1 bg-red-600 text-white font-semibold rounded-full shadow-md hover:bg-red-700 transition-colors duration-200">
+                Logout
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <script src="scripts.js"></script>
+</body>
+</html>
