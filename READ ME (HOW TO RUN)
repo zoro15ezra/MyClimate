@@ -1,0 +1,7 @@
+ENSURE TO OPEN TERMINAL AND RUN THE BELOW BEFORE RUNNING APPLICATION
+APPLOICATION IS HOSTED ON GITHUB
+https://zoro15ezra.github.io/MyClimate/
+
+node weather_proxy.js
+
+node auth_server.js
